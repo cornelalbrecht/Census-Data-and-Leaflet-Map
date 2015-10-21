@@ -54,10 +54,33 @@ income_df %<>% mutate(percent = 100*(over_200/total))
 
 income_merged <- geo_join(tracts, income_df, "GEOID", "GEOID") # merge the spatial and tabular data by "GEOID"
 
-income_merged <- filter(income_merged@data, ALAND > 0) # filter out tracts with less than 1 'ALAND'
+income_merged <-  income_merged[income_merged$ALAND>0,] # filter out tracts with less than 1 'ALAND'
 
 # CREATE THE LEAFLET MAP --------------------------------------------------------------------------
 
+popup <- paste0("GEOID: ", income_merged$id, "<br>", "Percent of Households above $200k: ", round(income_merged$percent,2))
+
+
+pal <- colorNumeric(
+        palette = "YlGnBu",
+        domain = income_merged$percent
+)
+
+map <- leaflet() %>% 
+        addProviderTiles("CartoDB.Positron") %>%
+        addPolygons(data = income_merged, 
+                    fillColor = ~pal(percent), 
+                    color = "#b2aeae", # you need to use hex colors
+                    fillOpacity = 0.5, 
+                    weight = 1, 
+                    smoothFactor = 0.2,
+                    popup = popup) %>%
+        addLegend(pal = pal, 
+                  values = income_merged$percent, 
+                  position = "bottomright", 
+                  title = "Percent of Households<br>above $200k",
+                  labFormat = labelFormat(suffix = "%")) 
+map
 
 
 # SAVE MAP AS AN IMAGE ----------------------------------------------------------------------------
