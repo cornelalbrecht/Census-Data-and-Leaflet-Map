@@ -1,6 +1,6 @@
 ## LEAFLET MAP EXPERIMENT
 
-# LOAD PACKAGES ----------------------------------------------------------------------------------------
+# LOAD PACKAGES -----------------------------------------------------------------------------------
 
 library(rgdal)    # for readOGR and others
 library(sp)       # for spatial objects
@@ -11,6 +11,7 @@ library(tigris)
 library(acs)
 library(stringr) # to pad fips codes
 library(purrr)
+library(magrittr)
 
 # GET SPATIAL DATA --------------------------------------------------------------------------------
 
@@ -30,6 +31,24 @@ tracts <- tracts(state = "WA",
 
 # GET THE TABULAR DATA ----------------------------------------------------------------------------
 
+geo <- geo.make(state = "WA",county = counties, tract = "*")    # create a geographic set to grab tabular data (acs)
+
+income <- acs.fetch(endyear = 2012, span = 5, geography = geo, # fetch the corresponding census data
+                  table.number = "B19001", col.names = "pretty")
+
+income_df <- data.frame(paste0(str_pad(string = income@geography$state, width = 2,side = "left",pad = "0"), # create a column of GEOIDs
+                               str_pad(string = income@geography$county, width = 3,side = "left",pad = "0"),
+                               str_pad(string = income@geography$tract, width = 6,side = "left",pad = "0")),
+                        income@estimate[,c("Household Income: Total:","Household Income: $200,000 or more")], # bind the two income columns 
+                        stringsAsFactors = FALSE)
+
+income_df %<>% select(1:3) # trim the dataframe to include GEOIDs and the two income variables
+
+rownames(income_df)<-1:nrow(income_df) # simplify the row names
+
+names(income_df)<-c("GEOID", "total", "over_200") # simplify the column names
+
+income_df %<>% mutate(percent = 100*(over_200/total))
 
 
 
