@@ -21,8 +21,12 @@ for (i in seq_along(PRSC_counties)){                                        # lo
         print(codes)
 }
 
-### Just adding some test text
+counties <- c(33,61,35,67) # create a list of the county codes
+names(counties) <- c("King", "Snohomish", "Kitsap", "Thurston") # name the codes, just so I don't forget
 
+tracts <- tracts(state = "WA",
+                 county = counties,
+                 cb = TRUE)
 
 # GET THE TABULAR DATA ----------------------------------------------------------------------------
 
