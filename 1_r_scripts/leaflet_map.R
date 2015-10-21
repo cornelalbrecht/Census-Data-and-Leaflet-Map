@@ -15,15 +15,15 @@ library(magrittr)
 
 # GET SPATIAL DATA --------------------------------------------------------------------------------
 
-PRSC_counties <- c("King", "Snohomish", "Kitsap", "Thurston") # create a vector of the counties
+PRSC_counties <- c("King", "Snohomish", "Kitsap", "Pierce") # create a vector of the counties
 
 for (i in seq_along(PRSC_counties)){                                        # look up the county codes
         codes <- lookup_code(state = "Washington",county = PRSC_counties[i])
         print(codes)
 }
 
-counties <- c(33,61,35,67) # create a list of the county codes
-names(counties) <- c("King", "Snohomish", "Kitsap", "Thurston") # name the codes, just so I don't forget
+counties <- c(33,61,35,53) # create a list of the county codes
+names(counties) <- c("King", "Snohomish", "Kitsap", "Pierce") # name the codes, just so I don't forget
 
 tracts <- tracts(state = "WA",
                  county = counties,
