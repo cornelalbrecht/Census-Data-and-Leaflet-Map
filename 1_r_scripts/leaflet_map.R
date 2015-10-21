@@ -58,7 +58,7 @@ income_merged <-  income_merged[income_merged$ALAND>0,] # filter out tracts with
 
 # CREATE THE LEAFLET MAP --------------------------------------------------------------------------
 
-popup <- paste0("GEOID: ", income_merged$id, "<br>", "Percent of Households above $200k: ", round(income_merged$percent,2))
+popup <- paste0("GEOID: ", income_merged$GEOID, "<br>", "Percent of Households above $200k: ", round(income_merged$percent,2))
 
 
 pal <- colorNumeric(
