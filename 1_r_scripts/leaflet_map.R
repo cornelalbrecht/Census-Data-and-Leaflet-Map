@@ -50,11 +50,11 @@ names(income_df)<-c("GEOID", "total", "over_200") # simplify the column names
 
 income_df %<>% mutate(percent = 100*(over_200/total))
 
-
-
 # MERGE -------------------------------------------------------------------------------------------
 
+income_merged <- geo_join(tracts, income_df, "GEOID", "GEOID") # merge the spatial and tabular data by "GEOID"
 
+income_merged <- filter(income_merged@data, ALAND > 0) # filter out tracts with less than 1 'ALAND'
 
 # CREATE THE LEAFLET MAP --------------------------------------------------------------------------
 
