@@ -1,5 +1,9 @@
 ## LEAFLET MAP EXPERIMENT
 
+# PROJECT SETTINGS --------------------------------------------------------------------------------
+
+options(scipen=999)
+
 # LOAD PACKAGES -----------------------------------------------------------------------------------
 
 library(rgdal)    # for readOGR and others
@@ -12,6 +16,9 @@ library(acs)
 library(stringr) # to pad fips codes
 library(purrr)
 library(magrittr)
+library(downloader)
+library(tmap)
+library(rgeos)
 
 # GET SPATIAL DATA --------------------------------------------------------------------------------
 
@@ -25,9 +32,86 @@ for (i in seq_along(PRSC_counties)){                                        # lo
 counties <- c(33,61,35,53) # create a list of the county codes
 names(counties) <- c("King", "Snohomish", "Kitsap", "Pierce") # name the codes, just so I don't forget
 
-tracts <- tracts(state = "WA",
+tracts_orig <- tracts(state = "WA",
                  county = counties,
                  cb = TRUE)
+
+# REMOVE WATERBODIES FROM TRACTS ------------------------------------------------------------------
+
+crs_geog <- tracts_orig@proj4string # save the CRS of the tracts data (type: geographic coordinate system)
+crs_proj <- "+init=epsg:3690" # save a projected coodinate system CRS 
+
+url <- "ftp://www.ecy.wa.gov/gis_a/inlandWaters/NHD/NHDmajor.gdb.zip" # save the URL for the waterbodies data
+
+temp <- tempfile() # create a temporary file to hold the compressed download
+
+download(url, dest = temp, mode="wb") # download the file
+
+unzip (temp, exdir = "./2_inputs/") # extract the ESRI geodatabase file to a project folder
+
+path_gdb <- "./2_inputs/NHDMajor.gdb/" # path to the geodatabase folder
+
+fc_list = ogrListLayers(path_gdb) # check the geodatabase contents
+print(fc_list)
+
+waterbodies.shp <- readOGR(dsn = path_gdb,      # create a waterbodies shape
+                layer = "NHD_MajorWaterbodies")
+
+waterbodies.shp <- gBuffer(waterbodies.shp, byid=TRUE, width=0) # clean up self-intersecting polygons
+
+waterbodies.shp <- spTransform(waterbodies.shp,CRSobj = crs_geog) # transform the projection to match the project projection
+
+sel <- waterbodies.shp@data %>% filter(AreaSqKm > 100 | GNIS_Name %in% c("Puget Sound","Lake Union","Lake Washington","Lake Washington Ship Canal")) %>% # create a subset of the waterbodies by size and name
+        select(Permanent_Identifier) %>% 
+        unlist() %>% 
+        as.character()
+
+waterbodies_sel.shp <- waterbodies.shp[waterbodies.shp@data$Permanent_Identifier %in% c(sel),] # apply the subset to the spatial data
+
+waterbodies_sel.shp <- spTransform(waterbodies_sel.shp,CRSobj = crs_proj) # change the CRS from geographic to projected
+
+tracts_orig <- spTransform(tracts_orig,CRSobj = crs_proj) # change the CRS from geographic to projected
+
+sel2 <- gIntersects(waterbodies_sel.shp,tracts_orig,byid = T) # refine the subset by selecting only the waterbodies that overlap a census tract
+
+intersect <- apply(X = sel2,MARGIN = 2,FUN = any) # identify the overlapping waterbodies
+
+sel3 <- sel[intersect] # refine the subset
+
+waterbodies_sel2.shp <- waterbodies.shp[waterbodies.shp@data$Permanent_Identifier %in% c(sel3),] # refine the subset of the spatial data
+
+waterbodies_sel2.shp <- spTransform(waterbodies_sel2.shp,CRSobj = crs_proj)
+
+tracts <- gDifference(spgeom1 = tracts_orig,spgeom2 = waterbodies_sel2.shp,byid = TRUE)
+
+        tm_shape(waterbodies_sel2.shp)+
+        tm_polygons(col = "red")
+
+        
+
+tm_shape(tracts_orig)+
+        tm_polygons(col = "red")+
+tm_shape(tracts)+
+        tm_polygons()
+
+tm_shape(tracts_orig)+
+        tm_polygons()+
+tm_shape(waterbodies_sel.shp)+
+        tm_polygons(col = "blue")
+
+tm_shape(tracts_orig)+
+        tm_polygons()+
+        tm_shape(waterbodies.shp)+
+        tm_polygons(col = "blue") +
+        tm_shape(waterbodies_sel.shp)+
+        tm_polygons(col = "darkblue")
+        
+
+
+# read in the shapefile
+
+# remove the temporary file
+
 
 # GET THE TABULAR DATA ----------------------------------------------------------------------------
 
