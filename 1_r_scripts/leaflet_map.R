@@ -33,8 +33,8 @@ counties <- c(33,61,35,53) # create a list of the county codes
 names(counties) <- c("King", "Snohomish", "Kitsap", "Pierce") # name the codes, just so I don't forget
 
 tracts_orig <- tracts(state = "WA",
-                 county = counties,
-                 cb = TRUE)
+                      county = counties,
+                      cb = TRUE)
 
 # REMOVE WATERBODIES FROM TRACTS ------------------------------------------------------------------
 
@@ -55,62 +55,41 @@ fc_list = ogrListLayers(path_gdb) # check the geodatabase contents
 print(fc_list)
 
 waterbodies.shp <- readOGR(dsn = path_gdb,      # create a waterbodies shape
-                layer = "NHD_MajorWaterbodies")
+                           layer = "NHD_MajorWaterbodies")
 
 waterbodies.shp <- gBuffer(waterbodies.shp, byid=TRUE, width=0) # clean up self-intersecting polygons
 
-waterbodies.shp <- spTransform(waterbodies.shp,CRSobj = crs_geog) # transform the projection to match the project projection
-
-sel <- waterbodies.shp@data %>% filter(AreaSqKm > 100 | GNIS_Name %in% c("Puget Sound","Lake Union","Lake Washington","Lake Washington Ship Canal")) %>% # create a subset of the waterbodies by size and name
-        select(Permanent_Identifier) %>% 
-        unlist() %>% 
-        as.character()
-
-waterbodies_sel.shp <- waterbodies.shp[waterbodies.shp@data$Permanent_Identifier %in% c(sel),] # apply the subset to the spatial data
-
-waterbodies_sel.shp <- spTransform(waterbodies_sel.shp,CRSobj = crs_proj) # change the CRS from geographic to projected
+waterbodies.shp <- spTransform(waterbodies.shp,CRSobj = crs_proj) # transform the projection to match the project projection
 
 tracts_orig <- spTransform(tracts_orig,CRSobj = crs_proj) # change the CRS from geographic to projected
 
-sel2 <- gIntersects(waterbodies_sel.shp,tracts_orig,byid = T) # refine the subset by selecting only the waterbodies that overlap a census tract
+tracts_big <- gUnaryUnion(tracts_orig)
 
-intersect <- apply(X = sel2,MARGIN = 2,FUN = any) # identify the overlapping waterbodies
+waterbodies_cntr <- gCentroid(spgeom = waterbodies.shp,byid = TRUE) #
 
-sel3 <- sel[intersect] # refine the subset
+sel <- over(x = waterbodies_cntr,y = tracts_big,returnList = TRUE) #
 
-waterbodies_sel2.shp <- waterbodies.shp[waterbodies.shp@data$Permanent_Identifier %in% c(sel3),] # refine the subset of the spatial data
+intersect <- which(sel == 1) # identify the overlapping waterbodies
 
-waterbodies_sel2.shp <- spTransform(waterbodies_sel2.shp,CRSobj = crs_proj)
+waterbodies_sel.shp <- waterbodies.shp[intersect,] # refine the subset of the spatial data
 
-tracts <- gDifference(spgeom1 = tracts_orig,spgeom2 = waterbodies_sel2.shp,byid = TRUE)
+waterbodies_sel.shp <- spTransform(waterbodies_sel.shp,CRSobj = crs_proj) # change the CRS from geographic to projected
 
-        tm_shape(waterbodies_sel2.shp)+
-        tm_polygons(col = "red")
+waterbodies_sel.shp <- gUnaryUnion(waterbodies_sel.shp)
 
-        
+tracts <- gDifference(spgeom1 = tracts_orig, spgeom2 = waterbodies_sel.shp, byid = TRUE,drop_lower_td = TRUE)  # Remove the waterbodies from the tract shapes
 
-tm_shape(tracts_orig)+
-        tm_polygons(col = "red")+
-tm_shape(tracts)+
-        tm_polygons()
+tracts <- spTransform(tracts,CRSobj = crs_geog)
 
-tm_shape(tracts_orig)+
-        tm_polygons()+
-tm_shape(waterbodies_sel.shp)+
-        tm_polygons(col = "blue")
+df <- tracts_orig@data
 
-tm_shape(tracts_orig)+
-        tm_polygons()+
-        tm_shape(waterbodies.shp)+
-        tm_polygons(col = "blue") +
-        tm_shape(waterbodies_sel.shp)+
-        tm_polygons(col = "darkblue")
-        
+rn <- rownames(df)
 
+tracts <- spChFIDs(obj = tracts,x = rn) # change the row IDs to match those in 'tracts_orig'
 
-# read in the shapefile
+tracts <- SpatialPolygonsDataFrame(Sr = tracts,data = df)
 
-# remove the temporary file
+tracts <- spTransform(tracts,CRSobj = crs_geog)
 
 
 # GET THE TABULAR DATA ----------------------------------------------------------------------------
