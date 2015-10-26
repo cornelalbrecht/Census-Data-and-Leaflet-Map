@@ -63,13 +63,14 @@ waterbodies.shp <- spTransform(waterbodies.shp,CRSobj = crs_proj) # transform th
 
 tracts_orig <- spTransform(tracts_orig,CRSobj = crs_proj) # change the CRS from geographic to projected
 
-tracts_big <- gUnaryUnion(tracts_orig)
+tracts_big <- gUnaryUnion(tracts_orig) # simplify the tract polygons by merging them into one polygon
 
-waterbodies_cntr <- gCentroid(spgeom = waterbodies.shp,byid = TRUE) #
+waterbodies_cntr <- gCentroid(spgeom = waterbodies.shp,byid = TRUE) # create a set of center points for the waterbodies shapes
 
-sel <- over(x = waterbodies_cntr,y = tracts_big,returnList = TRUE) #
-
-intersect <- which(sel == 1) # identify the overlapping waterbodies
+intersect <- over(x = waterbodies_cntr,y = tracts_big,returnList = TRUE) %>%  # find the indices of all waterbodies whose center point overlaps the merged tracts shape
+        .[which(. == 1)] %>% 
+        names() %>% 
+        as.numeric()
 
 waterbodies_sel.shp <- waterbodies.shp[intersect,] # refine the subset of the spatial data
 
