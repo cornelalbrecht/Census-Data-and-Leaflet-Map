@@ -129,12 +129,11 @@ counties_psrc <- as.character(counties) %>%          # reformat the counties cod
 counties.shp <- subset(counties_wa, COUNTYFP %in% counties_psrc)   # filter the counties shapefile to include only PSRC counties
 
 counties.shp %<>% spTransform(CRSobj = crs_proj) %>% 
-        gBuffer(byid=TRUE, width=0)
+        gBuffer(byid=TRUE, width=0) %>% spTransform(CRSobj = crs_geog)
 
 # CREATE THE LEAFLET MAP --------------------------------------------------------------------------
 
 popup <- paste0("GEOID: ", income_merged$GEOID, "<br>", "Percent of Households above $200k: ", round(income_merged$percent,2))
-
 
 pal <- colorNumeric(
         palette = "YlGnBu",
@@ -150,6 +149,7 @@ map <- leaflet() %>%
                     weight = 1, 
                     smoothFactor = 0.2,
                     popup = popup) %>%
+        addPolygons(data = counties.shp,fill = FALSE,stroke = TRUE, weight = 1.5, smoothFactor = 0.2) %>% 
         addLegend(pal = pal, 
                   values = income_merged$percent, 
                   position = "bottomright", 
