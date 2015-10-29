@@ -19,6 +19,7 @@ library(magrittr)
 library(downloader)
 library(tmap)
 library(rgeos)
+library(stringr)
 
 # GET SPATIAL DATA --------------------------------------------------------------------------------
 
@@ -69,14 +70,13 @@ waterbodies_cntr <- gCentroid(spgeom = waterbodies.shp,byid = TRUE) # create a s
 
 intersect <- over(x = waterbodies_cntr,y = tracts_big,returnList = TRUE) %>%  # find the indices of all waterbodies whose center point overlaps the merged tracts shape
         .[which(. == 1)] %>% 
-        names() %>% 
-        as.numeric()
+        names()
 
 waterbodies_sel.shp <- waterbodies.shp[intersect,] # refine the subset of the spatial data
 
 waterbodies_sel.shp <- spTransform(waterbodies_sel.shp,CRSobj = crs_proj) # change the CRS from geographic to projected
 
-waterbodies_sel.shp <- gUnaryUnion(waterbodies_sel.shp)
+waterbodies_sel.shp <- gUnaryUnion(waterbodies_sel.shp) # prep for 'gDifference' function: combine polygons into one multi-shape polygon
 
 tracts <- gDifference(spgeom1 = tracts_orig, spgeom2 = waterbodies_sel.shp, byid = TRUE,drop_lower_td = TRUE)  # Remove the waterbodies from the tract shapes
 
@@ -91,7 +91,6 @@ tracts <- spChFIDs(obj = tracts,x = rn) # change the row IDs to match those in '
 tracts <- SpatialPolygonsDataFrame(Sr = tracts,data = df)
 
 tracts <- spTransform(tracts,CRSobj = crs_geog)
-
 
 # GET THE TABULAR DATA ----------------------------------------------------------------------------
 
@@ -120,6 +119,18 @@ income_merged <- geo_join(tracts, income_df, "GEOID", "GEOID") # merge the spati
 
 income_merged <-  income_merged[income_merged$ALAND>0,] # filter out tracts with less than 1 'ALAND'
 
+# CREATE COUNTY SHAPES ----------------------------------------------------------------------------
+
+counties_wa <- tigris::counties(state = "WA", cb = TRUE) # download WA counties shapefiles
+
+counties_psrc <- as.character(counties) %>%          # reformat the counties codes
+        str_pad(width = 3,side = "left",pad = "0")
+
+counties.shp <- subset(counties_wa, COUNTYFP %in% counties_psrc)   # filter the counties shapefile to include only PSRC counties
+
+counties.shp %<>% spTransform(CRSobj = crs_proj) %>% 
+        gBuffer(byid=TRUE, width=0)
+
 # CREATE THE LEAFLET MAP --------------------------------------------------------------------------
 
 popup <- paste0("GEOID: ", income_merged$GEOID, "<br>", "Percent of Households above $200k: ", round(income_merged$percent,2))
@@ -131,7 +142,7 @@ pal <- colorNumeric(
 )
 
 map <- leaflet() %>% 
-        addProviderTiles("CartoDB.Positron") %>%
+        addProviderTiles("CartoDB.PositronNoLabels") %>%
         addPolygons(data = income_merged, 
                     fillColor = ~pal(percent), 
                     color = "#b2aeae", # you need to use hex colors
@@ -145,6 +156,5 @@ map <- leaflet() %>%
                   title = "Percent of Households<br>above $200k",
                   labFormat = labelFormat(suffix = "%")) 
 map
-
 
 # SAVE MAP AS AN IMAGE ----------------------------------------------------------------------------
