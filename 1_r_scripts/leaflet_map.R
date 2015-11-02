@@ -42,13 +42,17 @@ tracts_orig <- tracts(state = "WA",
 crs_geog <- tracts_orig@proj4string # save the CRS of the tracts data (type: geographic coordinate system)
 crs_proj <- "+init=epsg:3690" # save a projected coodinate system CRS 
 
-url <- "ftp://www.ecy.wa.gov/gis_a/inlandWaters/NHD/NHDmajor.gdb.zip" # save the URL for the waterbodies data
-
-temp <- tempfile() # create a temporary file to hold the compressed download
-
-download(url, dest = temp, mode="wb") # download the file
-
-unzip (temp, exdir = "./2_inputs/") # extract the ESRI geodatabase file to a project folder
+if(!file.exists("./2_inputs/NHDMajor.gdb")){  # check if the file already exists, if not then download it
+        url <- "ftp://www.ecy.wa.gov/gis_a/inlandWaters/NHD/NHDmajor.gdb.zip" # save the URL for the waterbodies data
+        
+        temp <- tempfile() # create a temporary file to hold the compressed download
+        
+        download(url, dest = temp, mode="wb") # download the file
+        
+        unzip (temp, exdir = "./2_inputs/") # extract the ESRI geodatabase file to a project folder
+        
+        dateDownloaded <- date()
+}
 
 path_gdb <- "./2_inputs/NHDMajor.gdb/" # path to the geodatabase folder
 
@@ -141,20 +145,31 @@ pal <- colorNumeric(
 )
 
 map <- leaflet() %>% 
-        addProviderTiles("CartoDB.PositronNoLabels") %>%
+        addProviderTiles("CartoDB.Positron", group = "basemap") %>%
         addPolygons(data = income_merged, 
                     fillColor = ~pal(percent), 
                     color = "#b2aeae", # you need to use hex colors
-                    fillOpacity = 0.5, 
+                    fillOpacity = 1, 
                     weight = 1, 
                     smoothFactor = 0.2,
-                    popup = popup) %>%
-        addPolygons(data = counties.shp,fill = FALSE,stroke = TRUE, weight = 1.5, smoothFactor = 0.2) %>% 
+                    popup = popup,
+                    group = "tracts") %>%
+        addPolygons(data = counties.shp,
+                    fill = FALSE,
+                    stroke = TRUE, 
+                    weight = 3.5,
+                    color = "#ADADAD",
+                    opacity = 0.25,
+                    smoothFactor = 0.2,
+                    group = "counties") %>%
         addLegend(pal = pal, 
                   values = income_merged$percent, 
-                  position = "bottomright", 
+                  position = "bottomleft", 
                   title = "Percent of Households<br>above $200k",
-                  labFormat = labelFormat(suffix = "%")) 
+                  labFormat = labelFormat(suffix = "%"),
+                  opacity = 1) %>% 
+        addLayersControl(overlayGroups = c("tracts","counties"),
+                         options = layersControlOptions(,collapsed = FALSE))
 map
 
 # SAVE MAP AS AN IMAGE ----------------------------------------------------------------------------
