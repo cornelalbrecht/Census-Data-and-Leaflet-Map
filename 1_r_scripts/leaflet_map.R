@@ -82,15 +82,16 @@ waterbodies_sel.shp <- spTransform(waterbodies_sel.shp,CRSobj = crs_proj) # chan
 
 waterbodies_sel.shp <- gUnaryUnion(waterbodies_sel.shp) # prep for 'gDifference' function: combine polygons into one multi-shape polygon
 
-tracts <- gDifference(spgeom1 = tracts_orig, spgeom2 = waterbodies_sel.shp, byid = TRUE,drop_lower_td = TRUE)  # Remove the waterbodies from the tract shapes
-
-tracts <- spTransform(tracts,CRSobj = crs_geog)
+tracts <- gDifference(spgeom1 = tracts_orig, spgeom2 = waterbodies_sel.shp, byid = TRUE,drop_lower_td = TRUE) %>%  # Remove the waterbodies from the tract shapes
+        spTransform(.,CRSobj = crs_geog)  
 
 df <- tracts_orig@data
 
 rn <- rownames(df)
 
-tracts <- spChFIDs(obj = tracts,x = rn) # change the row IDs to match those in 'tracts_orig'
+tracts <- spChFIDs(obj = tracts,x = rn) %>% # change the row IDs to match those in 'tracts_orig'
+        SpatialPolygonsDataFrame(Sr = .,data = df) %>% 
+        spTransform(.,CRSobj = crs_geog)
 
 tracts <- SpatialPolygonsDataFrame(Sr = tracts,data = df)
 
@@ -135,6 +136,9 @@ counties.shp <- subset(counties_wa, COUNTYFP %in% counties_psrc)   # filter the 
 counties.shp %<>% spTransform(CRSobj = crs_proj) %>% 
         gBuffer(byid=TRUE, width=0) %>% spTransform(CRSobj = crs_geog)
 
+counties_cntr.shp <- gCentroid(spgeom = counties.shp,byid = TRUE) %>%     # create a centroid object for county labels 
+        SpatialPointsDataFrame(.,data = as.data.frame(counties.shp@data))
+
 # CREATE THE LEAFLET MAP --------------------------------------------------------------------------
 
 popup <- paste0("GEOID: ", income_merged$GEOID, "<br>", "Percent of Households above $200k: ", round(income_merged$percent,2))
@@ -162,6 +166,9 @@ map <- leaflet() %>%
                     opacity = 0.25,
                     smoothFactor = 0.2,
                     group = "counties") %>%
+        addPopups(data= counties_cntr.shp,
+                  popup = ~NAME,
+                  options = popupOptions(minWidth = 20, closeOnClick = FALSE, closeButton = FALSE)) %>% 
         addLegend(pal = pal, 
                   values = income_merged$percent, 
                   position = "bottomleft", 
