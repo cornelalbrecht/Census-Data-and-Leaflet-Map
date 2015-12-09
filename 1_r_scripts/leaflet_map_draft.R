@@ -20,6 +20,7 @@ library(downloader)
 library(tmap)
 library(rgeos)
 library(stringr)
+library(shiny)
 
 # GET SPATIAL DATA --------------------------------------------------------------------------------
 
@@ -148,6 +149,8 @@ pal <- colorNumeric(
         domain = income_merged$percent
 )
 
+strokepattern <- "3, 6" # defines the stroke dash pattern (used for the county boundaries)
+
 map <- leaflet() %>% 
         addProviderTiles("CartoDB.Positron", group = "basemap") %>%
         addPolygons(data = income_merged, 
@@ -160,10 +163,11 @@ map <- leaflet() %>%
                     group = "tracts") %>%
         addPolygons(data = counties.shp,
                     fill = FALSE,
-                    stroke = TRUE, 
-                    weight = 3.5,
+                    stroke = TRUE,
+                    dashArray = strokepattern,
+                    weight = 3,
                     color = "#ADADAD",
-                    opacity = 0.25,
+                    opacity = 0.75,
                     smoothFactor = 0.2,
                     group = "counties") %>%
         addPopups(data= counties_cntr.shp,
@@ -176,7 +180,25 @@ map <- leaflet() %>%
                   labFormat = labelFormat(suffix = "%"),
                   opacity = 1) %>% 
         addLayersControl(overlayGroups = c("tracts","counties"),
-                         options = layersControlOptions(,collapsed = FALSE))
+                         options = layersControlOptions(collapsed = FALSE))
+
 map
 
 # SAVE MAP AS AN IMAGE ----------------------------------------------------------------------------
+
+# SHINY ---------------------------------------------------------------------------------------
+
+ui <- bootstrapPage(div(class="outer",
+                        tags$style(type = "text/css", ".outer {position: fixed; top: 0px; left: 0; right: 0; bottom: 0; overflow: hidden; padding: 0}"),
+                        leafletOutput("map", width = "100%", height = "100%"),
+                        absolutePanel(top = 60, right = 10, draggable=TRUE
+                        ))
+)
+
+server <- function(input, output, session) {
+        output$map <- renderLeaflet({
+                map
+        })
+}
+
+shinyApp(ui, server)

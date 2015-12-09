@@ -1,0 +1,9 @@
+name: Census-Data-and-Leaflet-Map
+account: maynardandking
+server: shinyapps.io
+appId: 72478
+bundleId: 327860
+url: https://maynardandking.shinyapps.io/Census-Data-and-Leaflet-Map
+when: 1449698290.0915
+asMultiple: FALSE
+asStatic: FALSE
